@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Happy Birthday!</title>
+<meta name="description" content="A birthday wish, just for you.">
+<meta property="og:title" content="Happy Birthday!">
+<meta property="og:description" content="Someone made this for you. Tap to open your birthday wish.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎂</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&family=Nunito:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #2b1330;
+    --bg-glow: #5a2152;
+    --gold: #ffc857;
+    --cream: #fff4e3;
+    --muted: #e4cfdc;
+    --coral: #ff6b6b;
+    --pink: #ff9fb2;
+    --teal: #4ecdc4;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; min-height: 100%; }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 32px 16px;
+    background: radial-gradient(circle at 50% 30%, var(--bg-glow), var(--bg) 70%) var(--bg);
+    color: var(--cream);
+    font-family: "Nunito", system-ui, sans-serif;
+    text-align: center;
+  }
+
+  #confetti {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    animation: rise .9s cubic-bezier(.2, .8, .2, 1) both;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  h1 {
+    margin: 0;
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(2.6rem, 11vw, 4.5rem);
+    line-height: 1.05;
+    color: var(--gold);
+    overflow-wrap: anywhere;
+  }
+
+  .name {
+    display: block;
+    margin-top: 6px;
+    font-style: italic;
+    font-weight: 500;
+    color: var(--pink);
+  }
+
+  .cake-button {
+    display: block;
+    margin: 20px auto 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    border-radius: 16px;
+    transition: transform .2s;
+  }
+  .cake-button:hover { transform: scale(1.03); }
+  .cake-button:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+  .cake-button svg { display: block; width: min(240px, 62vw); height: auto; }
+
+  .flame {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: flicker .5s ease-in-out infinite alternate;
+    transition: opacity .25s;
+  }
+  .flame:nth-of-type(2) { animation-delay: .15s; }
+  .flame:nth-of-type(3) { animation-delay: .3s; }
+  @keyframes flicker {
+    from { transform: scale(1, 1) rotate(-3deg); }
+    to { transform: scale(.88, 1.12) rotate(3deg); }
+  }
+  .blown .flame { opacity: 0; animation: none; }
+
+  .hint {
+    min-height: 1.5em;
+    margin: 0 0 20px;
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .message {
+    margin: 0 auto;
+    max-width: 46ch;
+    font-size: clamp(1.05rem, 3.6vw, 1.2rem);
+    line-height: 1.6;
+    color: var(--cream);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  .from {
+    margin: 20px 0 0;
+    font-family: "Fraunces", Georgia, serif;
+    font-style: italic;
+    font-size: 1.2rem;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  [hidden] { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    main, .flame { animation: none; }
+    .cake-button { transition: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<main>
+  <h1>Happy Birthday!<span class="name" id="name" hidden></span></h1>
+
+  <button class="cake-button" id="cake" type="button" aria-label="Blow out the candles">
+    <svg viewBox="0 0 240 200" aria-hidden="true">
+      <!-- candles -->
+      <rect x="77" y="46" width="10" height="38" rx="3" fill="#4ecdc4"/>
+      <rect x="115" y="38" width="10" height="46" rx="3" fill="#ff9fb2"/>
+      <rect x="153" y="46" width="10" height="38" rx="3" fill="#ffc857"/>
+      <!-- flames -->
+      <g>
+        <path class="flame" d="M82 16c7 10 9 14 9 19a9 9 0 0 1-18 0c0-5 2-9 9-19z" fill="#ffb627"/>
+        <path class="flame" d="M120 8c7 10 9 14 9 19a9 9 0 0 1-18 0c0-5 2-9 9-19z" fill="#ffb627"/>
+        <path class="flame" d="M158 16c7 10 9 14 9 19a9 9 0 0 1-18 0c0-5 2-9 9-19z" fill="#ffb627"/>
+      </g>
+      <!-- cake -->
+      <rect x="48" y="80" width="144" height="46" rx="10" fill="#fff4e3"/>
+      <path d="M48 92c0-7 5-12 12-12h120c7 0 12 5 12 12v4c-6 0-8 10-14 10s-8-10-14-10-8 12-14 12-8-12-14-12-8 10-14 10-8-10-14-10-8 12-14 12-8-12-14-12-8 8-14 8-8-8-14-8z" fill="#ff9fb2"/>
+      <rect x="28" y="122" width="184" height="56" rx="12" fill="#ff6b6b"/>
+      <path d="M28 136c0-8 6-14 14-14h156c8 0 14 6 14 14v2c-7 0-9 10-16 10s-9-10-16-10-9 12-16 12-9-12-16-12-9 10-16 10-9-10-16-10-9 12-16 12-9-12-16-12-9 10-16 10-9-10-16-10-5 4-10 4z" fill="#fff4e3"/>
+      <circle cx="62" cy="164" r="4" fill="#ffc857"/>
+      <circle cx="100" cy="168" r="4" fill="#4ecdc4"/>
+      <circle cx="140" cy="164" r="4" fill="#ffc857"/>
+      <circle cx="178" cy="168" r="4" fill="#4ecdc4"/>
+      <!-- plate -->
+      <rect x="12" y="176" width="216" height="12" rx="6" fill="#ffc857"/>
+    </svg>
+  </button>
+  <p class="hint" id="hint" aria-live="polite">Make a wish, then tap the cake to blow out the candles</p>
+
+  <p class="message" id="message"></p>
+  <p class="from" id="from" hidden></p>
+</main>
+
+<script>
+  /* ------------------------------------------------------------
+     EDIT YOUR WISH HERE
+     ------------------------------------------------------------ */
+  const WISH = {
+    name: "",   // the birthday person, e.g. "Sara"
+    from: "",   // who it's from, e.g. "With love, Atheeq"
+    message:
+      "Today is all about you.\n" +
+      "May this year bring you good health, big laughs, and everything you have been wishing for. " +
+      "The world is brighter with you in it."
+  };
+  /* You can also set these from the link, without editing this file:
+     ...?name=Sara&from=With%20love,%20Atheeq                         */
+
+  const params = new URLSearchParams(location.search);
+  const name = (params.get("name") || WISH.name).trim();
+  const from = (params.get("from") || WISH.from).trim();
+  const message = (params.get("message") || WISH.message).trim();
+
+  document.getElementById("message").textContent = message;
+  if (name) {
+    const el = document.getElementById("name");
+    el.textContent = name;
+    el.hidden = false;
+    document.title = "Happy Birthday, " + name + "!";
+  }
+  if (from) {
+    const el = document.getElementById("from");
+    el.textContent = from;
+    el.hidden = false;
+  }
+
+  /* Confetti */
+  const canvas = document.getElementById("confetti");
+  const ctx = canvas.getContext("2d");
+  const colors = ["#ffc857", "#ff6b6b", "#ff9fb2", "#4ecdc4", "#fff4e3"];
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let pieces = [];
+  let running = false;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = innerWidth * dpr;
+    canvas.height = innerHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  addEventListener("resize", resize);
+  resize();
+
+  function burst(count) {
+    if (reduceMotion) return;
+    for (let i = 0; i < count; i++) {
+      pieces.push({
+        x: Math.random() * innerWidth,
+        y: -20 - Math.random() * innerHeight * 0.6,
+        w: 6 + Math.random() * 6,
+        h: 10 + Math.random() * 8,
+        vy: 2 + Math.random() * 3,
+        sway: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.2,
+        angle: Math.random() * Math.PI,
+        color: colors[i % colors.length]
+      });
+    }
+    if (!running) {
+      running = true;
+      requestAnimationFrame(draw);
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    for (const p of pieces) {
+      p.y += p.vy;
+      p.sway += 0.04;
+      p.x += Math.sin(p.sway) * 1.2;
+      p.angle += p.spin;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    pieces = pieces.filter(p => p.y < innerHeight + 30);
+    if (pieces.length) {
+      requestAnimationFrame(draw);
+    } else {
+      running = false;
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+    }
+  }
+
+  /* Candles */
+  const cake = document.getElementById("cake");
+  cake.addEventListener("click", () => {
+    if (!cake.classList.contains("blown")) {
+      cake.classList.add("blown");
+      cake.setAttribute("aria-label", "More confetti");
+      document.getElementById("hint").textContent = "Your wish is on its way!";
+      burst(220);
+    } else {
+      burst(120);
+    }
+  });
+
+  burst(140);
+</script>
+</body>
+</html>
