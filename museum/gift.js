@@ -2,7 +2,7 @@
    EDIT YOUR GIFT HERE
    ------------------------------------------------------------ */
 window.GIFT = {
-  name: "",        // the birthday person, e.g. "Sara"
+  name: "Bushra",  // the birthday person, e.g. "Sara"
   signature: "",   // e.g. "With love, Atheeq"
   dedication:
     "Every picture in this room is a moment I am glad we had. " +

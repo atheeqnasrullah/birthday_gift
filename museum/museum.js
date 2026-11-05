@@ -551,6 +551,84 @@ function start() {
   bench(-W / 4 - 1, 3, false);
   bench(W / 4 + 1, 3, false);
 
+  /* ---------- Someone on the east bench, holding up a birthday board ---------- */
+  const SITTER = { x: W / 4 + 1, z: 3 };
+  {
+    const sitter = new THREE.Group();
+    sitter.position.set(SITTER.x, 0, SITTER.z);
+    sitter.rotation.y = -Math.PI / 2; // faces into the room
+    scene.add(sitter);
+
+    const skin = new THREE.MeshLambertMaterial({ color: 0xc08a60 });
+    const shirt = new THREE.MeshLambertMaterial({ color: 0x2f4a6d });
+    const trousers = new THREE.MeshLambertMaterial({ color: 0x3a3840 });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x17141c });
+
+    const ball = (radius, x, y, z, material) => {
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 20, 14), material);
+      mesh.position.set(x, y, z);
+      sitter.add(mesh);
+      return mesh;
+    };
+    const limb = (a, b, radius, material) => {
+      const from = new THREE.Vector3(...a);
+      const to = new THREE.Vector3(...b);
+      const span = to.clone().sub(from);
+      const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, span.length(), 6, 14), material);
+      mesh.position.copy(from).addScaledVector(span, 0.5);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), span.normalize());
+      sitter.add(mesh);
+    };
+
+    limb([0, 0.68, 0.02], [0, 1.08, 0.02], 0.17, shirt);          // body
+    limb([0, 1.2, 0.02], [0, 1.3, 0.02], 0.05, skin);             // neck
+    ball(0.135, 0, 1.42, 0.03, skin);                             // head
+    const hair = ball(0.142, 0, 1.44, 0.01, dark);
+    hair.scale.set(1, 0.92, 0.95);
+    hair.geometry = new THREE.SphereGeometry(0.142, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.52);
+    for (const s of [-1, 1]) {
+      ball(0.016, s * 0.05, 1.44, 0.155, dark);                   // eyes
+      limb([s * 0.12, 0.6, 0.03], [s * 0.13, 0.6, 0.42], 0.075, trousers); // thigh
+      limb([s * 0.13, 0.58, 0.42], [s * 0.13, 0.1, 0.46], 0.06, trousers); // shin
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.07, 0.26), dark);
+      foot.position.set(s * 0.13, 0.035, 0.52);
+      sitter.add(foot);
+      limb([s * 0.24, 1.13, 0.02], [s * 0.36, 0.86, 0.16], 0.055, shirt); // upper arm
+      limb([s * 0.36, 0.86, 0.16], [s * 0.47, 0.84, 0.36], 0.048, skin);  // forearm
+      ball(0.058, s * 0.5, 0.84, 0.39, skin);                     // hand on the board's edge
+    }
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.006, 6, 14, Math.PI), dark);
+    smile.position.set(0, 1.39, 0.155);
+    smile.rotation.z = Math.PI;
+    sitter.add(smile);
+
+    const boardBack = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.64, 0.02), dark);
+    boardBack.position.set(0, 0.97, 0.38);
+    sitter.add(boardBack);
+    const boardFace = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 0.6),
+      new THREE.MeshBasicMaterial({ color: 0xf6f3ee })
+    );
+    boardFace.position.set(0, 0.97, 0.392);
+    sitter.add(boardFace);
+
+    fontsReady.then(() => {
+      boardFace.material.map = textureOf(canvasOf(1000, 600, (ctx, w, h) => {
+        ctx.fillStyle = "#f6f3ee";
+        ctx.fillRect(0, 0, w, h);
+        drawBlocks(ctx, w, h, [
+          { text: "Happy Birthday", size: 118, font: "Fraunces, Georgia, serif", style: "500", color: "#7a4f12" },
+          ...(name ? [{ text: name, size: 150, font: "Fraunces, Georgia, serif", style: "italic 500", color: "#26222c", gap: 18 }] : [])
+        ], 40);
+      }));
+      boardFace.material.needsUpdate = true;
+      invalidate();
+    });
+
+    // Feet stick out past the bench, so walking stops short of them.
+    colliders.push({ minX: SITTER.x - 0.65, maxX: SITTER.x, minZ: SITTER.z - 0.25, maxZ: SITTER.z + 0.25 });
+  }
+
   /* ---------- Hang everything else ---------- */
   for (let i = 0; i < onWalls; i++) {
     const slot = allSlots[Math.floor((i * allSlots.length) / onWalls)];
@@ -841,6 +919,11 @@ function start() {
       });
     }
   }
+  // The final shot frames the whole person on the bench, not just a photo.
+  const sitterShot = {
+    group: { position: new THREE.Vector3(SITTER.x - 0.4, 0.9, SITTER.z), rotation: { y: -Math.PI / 2 } },
+    image: { scale: { x: 1.3, y: 1.6 } }
+  };
   const CLEARANCE = 0.7;
   const eyeRest = () => Math.abs(eyeY - EYE) < 0.001;
   const smooth = (u) => u * u * (3 - 2 * u);
@@ -923,21 +1006,20 @@ function start() {
 
   function beginLeg(delay = 0) {
     const closing = tour.stop === pictures.length;
-    const shot = shotFor(pictures[closing ? 0 : tour.stop]);
-    if (closing) shot.close = shot.wide;
+    const shot = shotFor(closing ? sitterShot : pictures[tour.stop]);
     const from = new THREE.Vector3(player.x, eyeY, player.z);
     const path = new THREE.CatmullRomCurve3([from, ...route(from, shot.wide), shot.wide]);
     const len = from.distanceTo(shot.wide) < 0.05 ? 0 : path.getLength();
     const dYaw = THREE.MathUtils.euclideanModulo(shot.ry - player.yaw + Math.PI, Math.PI * 2) - Math.PI;
-    // Each photo gets an equal share of the time; the closing shot gets half a share.
-    const share = (TOUR_SECONDS - START_DELAY) / (pictures.length + 0.5);
+    // Each photo gets an equal share of the time; the birthday board lingers for longer.
+    const share = (TOUR_SECONDS - START_DELAY) / (pictures.length + 1.5);
     tour.leg = {
       t: -delay,
       path,
       shot,
       travel: len ? share * 0.4 : 0,
-      push: share * (closing ? 0.1 : 0.4),
-      hold: closing ? 0 : share * 0.2,
+      push: share * 0.4,
+      hold: share * (closing ? 0.7 : 0.2),
       fromYaw: player.yaw,
       dYaw,
       fromPitch: player.pitch
