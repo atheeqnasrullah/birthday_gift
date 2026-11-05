@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Birthday Museum</title>
+<meta name="description" content="A little museum, made just for you.">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="A birthday museum, just for you">
+<meta property="og:description" content="Open the link and walk through it.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖼️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&family=Nunito:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #17141c;
+    --panel: #221c29;
+    --cream: #f7f1e7;
+    --muted: #c9bfd0;
+    --gold: #e9c46a;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--ink);
+    color: var(--cream);
+    font-family: "Nunito", system-ui, sans-serif;
+  }
+
+  #scene {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    touch-action: none;
+    cursor: grab;
+  }
+  #scene.dragging { cursor: grabbing; }
+
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+
+  /* Entrance */
+  #entrance {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    padding: 32px 16px;
+    overflow-y: auto;
+    text-align: center;
+    background: radial-gradient(circle at 50% 35%, #3a2a44, var(--ink) 75%) var(--ink);
+    transition: opacity .7s;
+  }
+  #entrance.leaving { opacity: 0; pointer-events: none; }
+  .card { width: 100%; max-width: 520px; }
+  .eyebrow {
+    margin: 0 0 12px;
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  h1 {
+    margin: 0;
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-size: clamp(2.4rem, 10vw, 4rem);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+  .dedication {
+    margin: 20px auto 0;
+    max-width: 44ch;
+    font-size: clamp(1.02rem, 3.4vw, 1.15rem);
+    line-height: 1.6;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .signature {
+    margin: 14px 0 0;
+    font-family: "Fraunces", Georgia, serif;
+    font-style: italic;
+    font-size: 1.15rem;
+    overflow-wrap: anywhere;
+  }
+  #enter {
+    margin-top: 28px;
+    padding: 14px 32px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--gold);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 1.05rem;
+    transition: transform .15s;
+  }
+  #enter:hover { transform: translateY(-2px); }
+
+  .fallback-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .fallback-grid img { width: 100%; height: 130px; object-fit: cover; border-radius: 6px; }
+
+  /* Hint */
+  #hint {
+    position: fixed;
+    top: calc(14px + env(safe-area-inset-top));
+    left: 50%;
+    z-index: 3;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: rgba(23, 20, 28, .82);
+    font-size: .9rem;
+    font-weight: 700;
+    text-align: center;
+    transform: translateX(-50%);
+    pointer-events: none;
+    transition: opacity .6s;
+  }
+  #hint.gone { opacity: 0; }
+
+  /* Joystick, touch screens only */
+  #stick {
+    position: fixed;
+    left: 24px;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    z-index: 3;
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    background: rgba(23, 20, 28, .35);
+    border: 2px solid rgba(255, 255, 255, .55);
+    touch-action: none;
+  }
+  #knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 48px;
+    height: 48px;
+    margin: -24px 0 0 -24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .85);
+    pointer-events: none;
+  }
+
+  /* Photo viewer */
+  #viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 64px 16px 32px;
+    background: rgba(13, 11, 16, .94);
+  }
+  #viewer img {
+    display: block;
+    max-width: 100%;
+    min-height: 0;
+    flex: 0 1 auto;
+    object-fit: contain;
+    border: 8px solid #fff;
+    background: #fff;
+  }
+  #viewer-caption {
+    margin: 0;
+    max-width: 52ch;
+    font-size: 1.05rem;
+    line-height: 1.55;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  #viewer-caption.long {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: clamp(1.2rem, 4vw, 1.6rem);
+  }
+  .view-btn {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .14);
+    color: var(--cream);
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+  .view-btn:hover { background: rgba(255, 255, 255, .26); }
+  #close { top: 12px; right: 12px; }
+  #prev { left: 12px; top: 50%; margin-top: -22px; }
+  #next { right: 12px; top: 50%; margin-top: -22px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #entrance, #hint, #enter { transition: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="A 3D museum with your photos on the walls"></canvas>
+
+<section id="entrance">
+  <div class="card">
+    <p class="eyebrow">Happy Birthday</p>
+    <h1 id="title">A museum, just for you</h1>
+    <p class="dedication" id="dedication"></p>
+    <p class="signature" id="signature" hidden></p>
+    <button id="enter" type="button">Enter the museum</button>
+    <p class="dedication" id="no-webgl" hidden>This device can't show the 3D museum, so here are the photos instead.</p>
+    <div class="fallback-grid" id="fallback" hidden></div>
+  </div>
+</section>
+
+<div id="hint" class="gone" aria-live="polite"></div>
+<div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
+
+<div id="viewer" role="dialog" aria-modal="true" aria-label="Photo" hidden>
+  <button class="view-btn" id="close" type="button" aria-label="Close">✕</button>
+  <button class="view-btn" id="prev" type="button" aria-label="Previous photo">‹</button>
+  <button class="view-btn" id="next" type="button" aria-label="Next photo">›</button>
+  <img id="viewer-img" alt="">
+  <p id="viewer-caption"></p>
+</div>
+
+<script src="gift.js"></script>
+<script type="module" src="museum.js"></script>
+</body>
+</html>
