@@ -159,6 +159,23 @@
     pointer-events: none;
   }
 
+  /* Video tour button */
+  #tour {
+    position: fixed;
+    right: 16px;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    z-index: 3;
+    min-height: 44px;
+    padding: 10px 18px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(23, 20, 28, .82);
+    color: var(--cream);
+    font-weight: 700;
+    font-size: .95rem;
+  }
+  #tour:hover { background: rgba(23, 20, 28, .95); }
+
   /* Photo viewer */
   #viewer {
     position: fixed;
@@ -231,6 +248,7 @@
 
 <div id="hint" class="gone" aria-live="polite"></div>
 <div id="stick" hidden aria-hidden="true"><div id="knob"></div></div>
+<button id="tour" type="button" hidden>■ Stop tour</button>
 
 <div id="viewer" role="dialog" aria-modal="true" aria-label="Photo" hidden>
   <button class="view-btn" id="close" type="button" aria-label="Close">✕</button>

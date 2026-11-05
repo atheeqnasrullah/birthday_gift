@@ -392,7 +392,7 @@ function start() {
       invalidate();
     }
 
-    const entry = { src: photo && photo.src, caption: photo && photo.caption };
+    const entry = { src: photo && photo.src, caption: photo && photo.caption, group, image };
     pictures.push(entry);
 
     function show(texture, aspect) {
@@ -567,6 +567,8 @@ function start() {
   let walkTo = null;
   let entered = false;
   let viewerOpen = false;
+  let eyeY = EYE;
+  const tour = { active: false, stop: 0, leg: null };
 
   function collide(p) {
     p.x = Math.min(W / 2 - RADIUS, Math.max(-W / 2 + RADIUS, p.x));
@@ -637,6 +639,7 @@ function start() {
 
   canvas.addEventListener("pointerdown", (e) => {
     if (drag || !entered) return;
+    stopTour();
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() };
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add("dragging");
@@ -690,9 +693,9 @@ function start() {
     }
     if (!entered) return;
     if (/^(Key[WASD]|Arrow(Up|Down|Left|Right))$/.test(e.code)) {
+      stopTour();
       keys.add(e.code);
       e.preventDefault();
-      hideHint();
     }
   });
   addEventListener("keyup", (e) => keys.delete(e.code));
@@ -812,16 +815,230 @@ function start() {
     hint.classList.add("gone");
   }
 
+  function showHint(text) {
+    clearTimeout(hintTimer);
+    hint.textContent = text;
+    hint.classList.remove("gone");
+    hintTimer = setTimeout(hideHint, 9000);
+  }
+
+  /* ---------- Video tour: glide to each photo and zoom in ---------- */
+  const tourBtn = $("tour");
+  const TOUR_SECONDS = 30; // whole tour, however many photos there are
+  const START_DELAY = 0.8; // lets the entrance fade out first
+  const WIDE_EXTRA = 1.4; // how much further back each zoom starts
+  const FILL = 0.84;      // share of the screen a photo fills at full zoom
+
+  // Walls the camera can't fly over. Benches and the plinth are low enough to pass above.
+  const tallBoxes = [{ minX: -4, maxX: 4, minZ: centreZ - 0.25, maxZ: centreZ + 0.25 }];
+  if (usePartitions) {
+    for (const x of [-W / 3, W / 3]) {
+      tallBoxes.push({
+        minX: x - PARTITION_THICKNESS / 2,
+        maxX: x + PARTITION_THICKNESS / 2,
+        minZ: -D / 4,
+        maxZ: D / 4
+      });
+    }
+  }
+  const CLEARANCE = 0.7;
+  const eyeRest = () => Math.abs(eyeY - EYE) < 0.001;
+  const smooth = (u) => u * u * (3 - 2 * u);
+
+  function insideBox(x, z, b, m) {
+    return x > b.minX - m && x < b.maxX + m && z > b.minZ - m && z < b.maxZ + m;
+  }
+
+  function segmentHits(a, b, box, m) {
+    let lo = 0;
+    let hi = 1;
+    for (const [from, to, min, max] of [
+      [a.x, b.x, box.minX - m, box.maxX + m],
+      [a.z, b.z, box.minZ - m, box.maxZ + m]
+    ]) {
+      const d = to - from;
+      if (Math.abs(d) < 1e-6) {
+        if (from <= min || from >= max) return false;
+        continue;
+      }
+      const t1 = (min - from) / d;
+      const t2 = (max - from) / d;
+      lo = Math.max(lo, Math.min(t1, t2));
+      hi = Math.min(hi, Math.max(t1, t2));
+      if (lo >= hi) return false;
+    }
+    return true;
+  }
+
+  // Corner points that take a straight flight from a to b around any wall in the way.
+  function route(a, b, depth = 0) {
+    if (depth > 4) return [];
+    const m = CLEARANCE - 0.1;
+    const box = tallBoxes.find((t) =>
+      !insideBox(a.x, a.z, t, m) && !insideBox(b.x, b.z, t, m) && segmentHits(a, b, t, m));
+    if (!box) return [];
+    let best = null;
+    let bestLen = Infinity;
+    for (const x of [box.minX - CLEARANCE, box.maxX + CLEARANCE]) {
+      for (const z of [box.minZ - CLEARANCE, box.maxZ + CLEARANCE]) {
+        const len = Math.hypot(x - a.x, z - a.z) + Math.hypot(x - b.x, z - b.z);
+        if (len < bestLen) {
+          bestLen = len;
+          best = new THREE.Vector3(x, (a.y + b.y) / 2, z);
+        }
+      }
+    }
+    return [...route(a, best, depth + 1), best, ...route(best, b, depth + 1)];
+  }
+
+  // Furthest the camera can back away from a photo before hitting a wall.
+  function reachFrom(p, nx, nz, want) {
+    let d = 0.6;
+    while (d + 0.1 <= want) {
+      const x = p.x + nx * (d + 0.1);
+      const z = p.z + nz * (d + 0.1);
+      const blocked = Math.abs(x) > W / 2 - 0.5 || Math.abs(z) > D / 2 - 0.5 ||
+        tallBoxes.some((t) => insideBox(x, z, t, CLEARANCE));
+      if (blocked) break;
+      d += 0.1;
+    }
+    return d;
+  }
+
+  // Worked out fresh for each photo, so it fits any phone shape and the photo's real size.
+  function shotFor(entry) {
+    const p = entry.group.position;
+    const ry = entry.group.rotation.y;
+    const nx = Math.sin(ry);
+    const nz = Math.cos(ry);
+    const span = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const want = Math.max(
+      entry.image.scale.y / FILL / span,
+      entry.image.scale.x / FILL / (span * camera.aspect)
+    );
+    const reach = reachFrom(p, nx, nz, want + WIDE_EXTRA);
+    const at = (d) => new THREE.Vector3(p.x + nx * d, p.y, p.z + nz * d);
+    return { ry, wide: at(reach), close: at(Math.min(want, reach)) };
+  }
+
+  function beginLeg(delay = 0) {
+    const closing = tour.stop === pictures.length;
+    const shot = shotFor(pictures[closing ? 0 : tour.stop]);
+    if (closing) shot.close = shot.wide;
+    const from = new THREE.Vector3(player.x, eyeY, player.z);
+    const path = new THREE.CatmullRomCurve3([from, ...route(from, shot.wide), shot.wide]);
+    const len = from.distanceTo(shot.wide) < 0.05 ? 0 : path.getLength();
+    const dYaw = THREE.MathUtils.euclideanModulo(shot.ry - player.yaw + Math.PI, Math.PI * 2) - Math.PI;
+    // Each photo gets an equal share of the time; the closing shot gets half a share.
+    const share = (TOUR_SECONDS - START_DELAY) / (pictures.length + 0.5);
+    tour.leg = {
+      t: -delay,
+      path,
+      shot,
+      travel: len ? share * 0.4 : 0,
+      push: share * (closing ? 0.1 : 0.4),
+      hold: closing ? 0 : share * 0.2,
+      fromYaw: player.yaw,
+      dYaw,
+      fromPitch: player.pitch
+    };
+  }
+
+  function updateTour(dt) {
+    const leg = tour.leg;
+    leg.t += dt;
+    if (leg.t < 0) return;
+    let pos;
+    if (leg.t < leg.travel) {
+      const u = smooth(leg.t / leg.travel);
+      pos = leg.path.getPointAt(u);
+      player.yaw = leg.fromYaw + leg.dYaw * u;
+      player.pitch = leg.fromPitch * (1 - u);
+    } else {
+      const u = smooth(Math.min((leg.t - leg.travel) / leg.push, 1));
+      pos = leg.shot.wide.clone().lerp(leg.shot.close, u);
+      player.yaw = leg.shot.ry;
+      player.pitch = 0;
+    }
+    player.x = pos.x;
+    player.z = pos.z;
+    eyeY = pos.y;
+    if (leg.t >= leg.travel + leg.push + leg.hold) {
+      tour.stop++;
+      if (tour.stop > pictures.length) endTour(false);
+      else beginLeg();
+    }
+  }
+
+  // The tour flies over benches and the plinth, so step off them before walking resumes.
+  function settlePlayer() {
+    for (const c of colliders) {
+      if (!insideBox(player.x, player.z, c, 0)) continue;
+      const [gap, axis, edge] = [
+        [player.x - c.minX, "x", c.minX - RADIUS],
+        [c.maxX - player.x, "x", c.maxX + RADIUS],
+        [player.z - c.minZ, "z", c.minZ - RADIUS],
+        [c.maxZ - player.z, "z", c.maxZ + RADIUS]
+      ].sort((a, b) => a[0] - b[0])[0];
+      if (gap >= 0) player[axis] = edge;
+    }
+    collide(player);
+  }
+
+  function walkHint() {
+    showHint(coarse
+      ? "Move with the circle. Drag to look. Tap a photo to see it."
+      : "Walk with W A S D or the arrow keys. Drag to look. Click a photo to see it.");
+  }
+
+  function startTour(delay = 0) {
+    walkTo = null;
+    keys.clear();
+    releaseStick();
+    stick.hidden = true;
+    tour.active = true;
+    tourBtn.textContent = "■ Stop tour";
+    beginLeg(delay);
+  }
+
+  function endTour(keepPlace) {
+    tour.active = false;
+    tour.leg = null;
+    if (!keepPlace) tour.stop = 0;
+    settlePlayer();
+    stick.hidden = !coarse;
+    tourBtn.textContent = keepPlace ? "▶ Continue tour" : "▶ Watch again";
+    walkHint();
+    invalidate();
+  }
+
+  function stopTour() {
+    if (tour.active) endTour(true);
+    else hideHint();
+  }
+
+  tourBtn.addEventListener("click", () => {
+    if (tour.active) {
+      endTour(true);
+    } else {
+      hideHint();
+      startTour();
+    }
+  });
+
   $("enter").addEventListener("click", () => {
     entered = true;
     $("entrance").classList.add("leaving");
     setTimeout(() => { $("entrance").hidden = true; }, 750);
-    stick.hidden = !coarse;
-    hint.textContent = coarse
-      ? "Move with the circle. Drag to look. Tap a photo to see it."
-      : "Walk with W A S D or the arrow keys. Drag to look. Click a photo to see it.";
-    hint.classList.remove("gone");
-    hintTimer = setTimeout(hideHint, 9000);
+    tourBtn.hidden = false;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      stick.hidden = !coarse;
+      tourBtn.textContent = "▶ Watch tour";
+      walkHint();
+    } else {
+      startTour(START_DELAY);
+      showHint(coarse ? "Tap the screen to stop and walk around." : "Click or press a key to stop and walk around.");
+    }
     canvas.focus?.();
     invalidate();
   });
@@ -841,10 +1058,20 @@ function start() {
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.15); // keeps walking speed steady on slow phones
     last = now;
-    if (!viewerOpen && step(dt)) dirty = true;
+    if (tour.active) {
+      updateTour(dt);
+      dirty = true;
+    } else {
+      if (!viewerOpen && step(dt)) dirty = true;
+      if (!eyeRest()) {
+        eyeY += (EYE - eyeY) * Math.min(1, dt * 4);
+        if (eyeRest()) eyeY = EYE;
+        dirty = true;
+      }
+    }
     if (dirty) {
       dirty = false;
-      camera.position.set(player.x, EYE, player.z);
+      camera.position.set(player.x, eyeY, player.z);
       camera.rotation.set(player.pitch, player.yaw, 0);
       renderer.render(scene, camera);
     }
@@ -853,5 +1080,5 @@ function start() {
   requestAnimationFrame(frame);
 
   // State used by automated checks
-  window.__museum = { player, pictures, room: { W, D }, invalidate };
+  window.__museum = { player, pictures, room: { W, D }, invalidate, tour, tallBoxes };
 }
